@@ -1,6 +1,7 @@
 pub mod group;
 pub mod marker;
 pub mod member;
+pub mod member_guild_settings;
 pub mod message;
 pub mod pluralkit_id;
 pub mod pluralkit_ref;
