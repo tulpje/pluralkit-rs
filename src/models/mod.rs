@@ -1,3 +1,4 @@
+pub mod autoproxy_settings;
 pub mod group;
 pub mod marker;
 pub mod member;
