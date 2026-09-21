@@ -5,4 +5,5 @@ pub mod pluralkit_id;
 pub mod pluralkit_ref;
 pub mod pluralkit_uuid;
 pub mod privacy;
+pub mod switch;
 pub mod system;
