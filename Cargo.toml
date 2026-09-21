@@ -1,0 +1,8 @@
+[package]
+name = "pluralkit-rs"
+version = "0.1.0"
+edition = "2024"
+description = "an async pluralkit api client"
+license = "CC-BY-NC-SA-4.0"
+
+[dependencies]
