@@ -1,4 +1,5 @@
 pub mod marker;
+pub mod member;
 pub mod pluralkit_id;
 pub mod pluralkit_ref;
 pub mod pluralkit_uuid;
