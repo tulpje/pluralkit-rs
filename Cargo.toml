@@ -6,3 +6,8 @@ description = "an async pluralkit api client"
 license = "CC-BY-NC-SA-4.0"
 
 [dependencies]
+jiff = { version = "0.2.37", features = ["serde"] }
+reqwest = { version = "0.13.5", features = ["json", "rustls", "query"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+uuid = { version = "1.26.1", features = ["serde"] }
