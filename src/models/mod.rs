@@ -10,4 +10,5 @@ pub mod pluralkit_uuid;
 pub mod privacy;
 pub mod switch;
 pub mod system;
+pub mod system_guild_settings;
 pub mod system_settings;
