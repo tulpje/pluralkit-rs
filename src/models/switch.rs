@@ -12,59 +12,17 @@ use crate::models::{
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Switch {
     pub id: PluralKitUuid<SwitchMarker>,
+    #[serde(with = "crate::models::datetime")]
     pub timestamp: DateTime,
-    pub members: SwitchMembers,
+    pub members: Vec<PluralKitId<MemberMarker>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(untagged)]
-pub enum SwitchMembers {
-    Ids(Vec<PluralKitId<MemberMarker>>),
-    Structs(Vec<Member>),
-}
-
-#[cfg(test)]
-mod test {
-    use std::assert_matches;
-
-    use super::*;
-
-    #[test]
-    fn test_deserialize_member_ids() {
-        let members = serde_json::from_str::<SwitchMembers>("[\"aaa-aa\"]").unwrap();
-        assert_matches!(members, SwitchMembers::Ids(_))
-    }
-
-    #[test]
-    fn test_deserialize_member_structs() {
-        let members = serde_json::from_str::<SwitchMembers>(
-            r#"
-                [{
-                    "id": "aaa-aa",
-                    "uuid": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-                    "name": "a",
-                    "display_name": null,
-                    "color": null,
-                    "birthday": null,
-                    "pronouns": null,
-                    "avatar_url": null,
-                    "webhook_avatar_url": null,
-                    "banner": null,
-                    "description": null,
-                    "created": null,
-                    "proxy_tags": [],
-                    "keep_proxy": false,
-                    "tts": false,
-                    "autoproxy_enabled": null,
-                    "message_count": null,
-                    "last_message_timestamp": null,
-                    "privacy": null
-                }]
-            "#,
-        )
-        .unwrap();
-        assert_matches!(members, SwitchMembers::Structs(_))
-    }
+pub struct SwitchWithMembers {
+    pub id: PluralKitUuid<SwitchMarker>,
+    #[serde(with = "crate::models::datetime")]
+    pub timestamp: DateTime,
+    pub members: Vec<Member>,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
