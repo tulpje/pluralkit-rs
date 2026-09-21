@@ -5,6 +5,8 @@ use models::{
     AutoproxySettings, Member, MemberRef, PublicSystemSettings, System, SystemGuildSettings,
     SystemRef, SystemSettings,
 };
+use reqwest::{Client, Method, Request, RequestBuilder, Response, StatusCode};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::models::{
     Group, GroupRef, MemberGuildSettings, Message, PluralKitUuid, Switch, SwitchWithMembers,
@@ -247,5 +249,27 @@ impl PluralKit {
         message_id: String,
     ) -> Result<Message, Error> {
         todo!()
+    }
+
+    // handlers
+    async fn send(&self, builder: RequestBuilder) -> Result<Response, Error> {
+        let resp = builder.send().await?.error_for_status()?;
+        Ok(resp)
+    }
+
+    async fn send_expect_204(&self, builder: RequestBuilder) -> Result<(), Error> {
+        let response = self.send(builder).await?;
+
+        (response.status() != StatusCode::NO_CONTENT).ok_or(
+            format!(
+                "expected status code 204 but received {}",
+                response.status().as_u16(),
+            )
+            .into(),
+        )
+    }
+
+    async fn send_json<RT: DeserializeOwned>(&self, builder: RequestBuilder) -> Result<RT, Error> {
+        Ok(self.send(builder).await?.json().await?)
     }
 }
