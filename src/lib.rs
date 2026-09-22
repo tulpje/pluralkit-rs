@@ -20,6 +20,15 @@ pub struct PluralKit {
 }
 
 impl PluralKit {
+    pub fn new() -> Self {
+        Self {
+            client: Client::builder()
+                .user_agent(format!("pluralkit-rs/{}", env!("CARGO_PKG_VERSION")))
+                .build()
+                .expect("error building reqwest client"),
+        }
+    }
+
     // system
     pub async fn get_system(&self, system_ref: SystemRef) -> Result<System, Error> {
         todo!()
