@@ -1,37 +1,68 @@
 pub mod models;
+pub mod rate_limiter;
+
+mod queue;
+
+use std::{sync::Arc, time::Duration};
 
 use jiff::civil::DateTime;
 use models::{
     AutoproxySettings, Member, MemberRef, PublicSystemSettings, System, SystemGuildSettings,
     SystemRef, SystemSettings,
 };
-use reqwest::{Client, Method, Request, RequestBuilder, Response, StatusCode};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
-
-use crate::models::{
-    Group, GroupRef, MemberGuildSettings, Message, PluralKitUuid, Switch, SwitchWithMembers,
-    marker::SwitchMarker,
+use reqwest::{
+    Client, RequestBuilder, Response, StatusCode,
+    header::{CONTENT_TYPE, HeaderMap, HeaderValue},
 };
 
-type Error = Box<dyn std::error::Error>;
+use crate::{
+    models::{
+        Group, GroupRef, MemberGuildSettings, Message, PluralKitUuid, Switch, SwitchWithMembers,
+        marker::SwitchMarker,
+    },
+    queue::PluralKitQueue,
+    rate_limiter::handle_ratelimit_headers,
+};
+
+type Error = Box<dyn std::error::Error + Send + Sync>;
+
+const FALLBACK_WAIT_DURATION: Duration = Duration::from_secs(2);
 
 pub struct PluralKit {
     client: Client,
+    base_url: String,
+    queue: Arc<PluralKitQueue>,
 }
 
 impl PluralKit {
     pub fn new() -> Self {
+        let queue = Arc::new(PluralKitQueue::new());
+        let runner = PluralKitRunner::new(queue.clone());
+        tokio::spawn(async move {
+            runner.run().await;
+        });
+
         Self {
             client: Client::builder()
                 .user_agent(format!("pluralkit-rs/{}", env!("CARGO_PKG_VERSION")))
+                .default_headers(HeaderMap::from_iter([(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static("application/json"),
+                )]))
                 .build()
                 .expect("error building reqwest client"),
+            base_url: String::from("https://api.pluralkit.me/v2"),
+            queue,
         }
     }
 
     // system
     pub async fn get_system(&self, system_ref: SystemRef) -> Result<System, Error> {
-        todo!()
+        self.send_json(
+            self.client
+                .get(format!("{}/systems/{system_ref}", self.base_url)),
+        )
+        .await
     }
 
     pub async fn update_system(&self, system: System) -> Result<System, Error> {
@@ -262,8 +293,14 @@ impl PluralKit {
 
     // handlers
     async fn send(&self, builder: RequestBuilder) -> Result<Response, Error> {
-        let resp = builder.send().await?.error_for_status()?;
-        Ok(resp)
+        let resp = self.queue.push(builder, 1).await??;
+
+        if resp.status() != 200 {
+            println!("response body: {}", resp.text().await?);
+            return Err("non-200".into());
+        }
+
+        Ok(resp.error_for_status()?)
     }
 
     async fn send_expect_204(&self, builder: RequestBuilder) -> Result<(), Error> {
@@ -280,5 +317,63 @@ impl PluralKit {
 
     async fn send_json<RT: DeserializeOwned>(&self, builder: RequestBuilder) -> Result<RT, Error> {
         Ok(self.send(builder).await?.json().await?)
+    }
+}
+
+struct PluralKitRunner {
+    queue: Arc<PluralKitQueue>,
+}
+
+impl PluralKitRunner {
+    fn new(queue: Arc<PluralKitQueue>) -> Self {
+        Self { queue }
+    }
+
+    async fn run(&self) {
+        loop {
+            let (prio, request) = self.queue.pop().await;
+
+            let resp = if let Some(cloned_req) = request.req.try_clone() {
+                let resp = cloned_req.send().await;
+
+                // status 429 retry logic
+                if let Ok(ref resp) = resp
+                    && resp.status() == StatusCode::TOO_MANY_REQUESTS
+                {
+                    // requeue with same priority to retry after any higher priority items
+                    self.queue.retry(request, prio);
+
+                    // sleep for rate limit
+                    let sleep_duration =
+                        handle_ratelimit_headers(resp.headers()).unwrap_or(FALLBACK_WAIT_DURATION);
+                    tokio::time::sleep(sleep_duration).await;
+
+                    continue;
+                }
+
+                resp
+            } else {
+                // can only send once no matter what
+                request.req.send().await
+            };
+
+            // calculate sleep duration from headers and status code
+            let sleep_duration = resp.as_ref().map_or(None, |resp| {
+                handle_ratelimit_headers(resp.headers()).or_else(|| {
+                    (resp.status() == StatusCode::TOO_MANY_REQUESTS)
+                        .then_some(FALLBACK_WAIT_DURATION)
+                })
+            });
+
+            // send response (or error) back to client
+            if request.response_tx.send(resp).is_err() {
+                println!("ERR: couldnt sending response back, dropping");
+            }
+
+            // wait for ratelimiting after sending response back
+            if let Some(sleep_duration) = sleep_duration {
+                tokio::time::sleep(sleep_duration).await;
+            }
+        }
     }
 }
