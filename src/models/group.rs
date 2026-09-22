@@ -17,6 +17,7 @@ pub struct Group {
     pub name: String,
     pub display_name: Option<String>,
     pub description: Option<String>,
+    #[serde(deserialize_with = "crate::models::datetime::deserialize_optional")]
     pub created: Option<DateTime>,
     pub icon: Option<String>,
     pub banner: Option<String>,

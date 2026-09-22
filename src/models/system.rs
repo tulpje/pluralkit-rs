@@ -17,6 +17,7 @@ pub struct System {
     pub avatar_url: Option<String>,
     pub banner: Option<String>,
     pub color: Option<String>,
+    #[serde(with = "crate::models::datetime")]
     pub created: DateTime,
     pub privacy: Option<SystemPrivacy>,
 }

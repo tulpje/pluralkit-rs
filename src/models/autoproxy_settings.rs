@@ -11,6 +11,7 @@ pub struct AutoproxySettings {
     channel_id: Option<String>,
     autoproxy_mode: AutoproxyMode,
     autoproxy_member: Option<PluralKitId<MemberMarker>>,
+    #[serde(with = "crate::models::datetime")]
     last_latch_timestamp: DateTime,
 }
 

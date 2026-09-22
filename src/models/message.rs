@@ -5,6 +5,7 @@ use crate::models::{member::Member, system::System};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Message {
+    #[serde(with = "crate::models::datetime")]
     timestamp: DateTime,
     id: String,
     original: String,

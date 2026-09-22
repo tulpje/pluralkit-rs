@@ -23,12 +23,14 @@ pub struct Member {
     pub webhook_avatar_url: Option<String>,
     pub banner: Option<String>,
     pub description: Option<String>,
+    #[serde(deserialize_with = "crate::models::datetime::deserialize_optional")]
     pub created: Option<DateTime>,
     pub proxy_tags: Vec<ProxyTag>,
     pub keep_proxy: bool,
     pub tts: bool,
     pub autoproxy_enabled: Option<bool>,
     pub message_count: Option<u64>,
+    #[serde(deserialize_with = "crate::models::datetime::deserialize_optional")]
     pub last_message_timestamp: Option<DateTime>,
     pub privacy: Option<MemberPrivacy>,
 }
