@@ -298,32 +298,28 @@ impl PluralKit {
         todo!()
     }
 
-    // handlers
-    async fn send(&self, builder: RequestBuilder) -> Result<reqwest::Response, Error> {
-        let resp = self.queue.push(builder, 1).await??;
-
-        if resp.status() != 200 {
-            println!("response body: {}", resp.text().await?);
-            return Err("non-200".into());
-        }
-
-        Ok(resp.error_for_status()?)
+    // shorthand
+    fn get<T: Send + Sync>(&self, path: impl Into<String>) -> Request<T> {
+        self.request(Method::GET, path)
+    }
+    fn post<T: Send + Sync>(&self, path: impl Into<String>) -> Request<T> {
+        self.request(Method::POST, path)
+    }
+    fn patch<T: Send + Sync>(&self, path: impl Into<String>) -> Request<T> {
+        self.request(Method::PATCH, path)
+    }
+    fn delete<T: Send + Sync>(&self, path: impl Into<String>) -> Request<T> {
+        self.request(Method::DELETE, path)
     }
 
-    async fn send_expect_204(&self, builder: RequestBuilder) -> Result<(), Error> {
-        let response = self.send(builder).await?;
-
-        (response.status() != StatusCode::NO_CONTENT).ok_or(
-            format!(
-                "expected status code 204 but received {}",
-                response.status().as_u16(),
-            )
-            .into(),
+    fn request<T: Send + Sync>(&self, method: Method, path: impl Into<String>) -> Request<T> {
+        Request::new(
+            &self.client,
+            method,
+            &self.base_url,
+            &path.into(),
+            self.queue.clone(),
         )
-    }
-
-    async fn send_json<RT: DeserializeOwned>(&self, builder: RequestBuilder) -> Result<RT, Error> {
-        Ok(self.send(builder).await?.json().await?)
     }
 }
 
