@@ -19,12 +19,11 @@ use reqwest::{
 use crate::{
     models::{
         Group, GroupRef, MemberGuildSettings, Message, PluralKitUuid, Switch, SwitchWithMembers,
-        marker::SwitchMarker,
+        group::GroupWithMembers, marker::SwitchMarker,
     },
     queue::PluralKitQueue,
     rate_limiter::handle_ratelimit_headers,
-    request::EmptyBody,
-    request::Request,
+    request::{EmptyBody, Request},
 };
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -232,52 +231,84 @@ impl PluralKit {
     }
 
     // group
-    pub async fn get_system_groups(&self, system_ref: SystemRef) -> Result<Vec<Group>, Error> {
-        todo!()
+    pub fn get_system_groups(&self, system_ref: &SystemRef) -> Request<Vec<Group>> {
+        self.get(format!("/systems/{system_ref}/groups"))
     }
 
-    pub async fn create_group(&self, group: Group) -> Result<Group, Error> {
-        todo!()
+    pub fn get_system_groups_with_members(
+        &self,
+        system_ref: &SystemRef,
+    ) -> Request<Vec<GroupWithMembers>> {
+        self.get(format!("/systems/{system_ref}/groups"))
+            .query("with_members", "true")
     }
 
-    pub async fn get_group(&self, group_ref: GroupRef) -> Result<Group, Error> {
-        todo!()
+    pub fn create_group(
+        &self,
+        group: Group,
+        token: impl Into<String>,
+    ) -> Result<Request<Group>, InvalidHeaderValue> {
+        self.post("/groups").json(&group).token(token)
     }
 
-    pub async fn update_group(&self, group: Group) -> Result<Group, Error> {
-        todo!()
+    pub fn get_group(&self, group_ref: GroupRef) -> Request<Group> {
+        self.get(format!("/groups/{group_ref}"))
     }
 
-    pub async fn delete_group(&self, group_ref: GroupRef) -> Result<(), Error> {
-        todo!()
+    pub fn update_group(
+        &self,
+        group_ref: GroupRef,
+        group: Group,
+        token: impl Into<String>,
+    ) -> Result<Request<Group>, InvalidHeaderValue> {
+        self.patch(format!("/groups/{group_ref}"))
+            .json(&group)
+            .token(token)
     }
 
-    pub async fn get_group_members(&self, group_ref: GroupRef) -> Result<Vec<Member>, Error> {
-        todo!()
+    pub fn delete_group(
+        &self,
+        group_ref: GroupRef,
+        token: impl Into<String>,
+    ) -> Result<Request<EmptyBody>, InvalidHeaderValue> {
+        self.delete(format!("/groups/{group_ref}")).token(token)
+    }
+
+    pub fn get_group_members(&self, group_ref: GroupRef) -> Request<Vec<Member>> {
+        self.get(format!("/groups/{group_ref}/members"))
     }
 
     pub fn add_members_to_group(
         &self,
         group_ref: GroupRef,
         member_refs: Vec<MemberRef>,
-    ) -> Result<(), Error> {
-        todo!()
+        token: impl Into<String>,
+    ) -> Result<Request<EmptyBody>, InvalidHeaderValue> {
+        self.post(format!("/groups/{group_ref}/members/add"))
+            .json(&member_refs)
+            .token(token)
     }
 
     pub fn remove_members_from_group(
         &self,
         group_ref: GroupRef,
         member_refs: Vec<MemberRef>,
-    ) -> Result<(), Error> {
-        todo!()
+        token: impl Into<String>,
+    ) -> Result<Request<EmptyBody>, InvalidHeaderValue> {
+        self.post(format!("/groups/{group_ref}/members/remove"))
+            .json(&member_refs)
+            .token(token)
     }
 
     pub fn overwrite_group_members(
         &self,
         group_ref: GroupRef,
         member_refs: Vec<MemberRef>,
-    ) -> Result<(), Error> {
-        todo!()
+        token: impl Into<String>,
+    ) -> Result<Request<EmptyBody>, InvalidHeaderValue> {
+        self.post(format!("/groups/{group_ref}/members/overwrite"))
+            .json(&member_refs)
+            .token(token)
     }
 
     // switches
