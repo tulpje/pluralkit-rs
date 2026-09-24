@@ -34,6 +34,12 @@ pub struct PluralKit {
     queue: Arc<PluralKitQueue>,
 }
 
+impl Default for PluralKit {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PluralKit {
     pub fn new() -> Self {
         let queue = Arc::new(PluralKitQueue::new());
