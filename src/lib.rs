@@ -1,5 +1,6 @@
 pub mod models;
 pub mod rate_limiter;
+pub mod request;
 
 mod queue;
 
@@ -11,7 +12,7 @@ use models::{
     SystemRef, SystemSettings,
 };
 use reqwest::{
-    Client, RequestBuilder, Response, StatusCode,
+    Client, RequestBuilder, StatusCode,
     header::{CONTENT_TYPE, HeaderMap, HeaderValue},
 };
 
@@ -298,7 +299,7 @@ impl PluralKit {
     }
 
     // handlers
-    async fn send(&self, builder: RequestBuilder) -> Result<Response, Error> {
+    async fn send(&self, builder: RequestBuilder) -> Result<reqwest::Response, Error> {
         let resp = self.queue.push(builder, 1).await??;
 
         if resp.status() != 200 {
