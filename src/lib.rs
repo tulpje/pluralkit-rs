@@ -12,8 +12,8 @@ use models::{
     SystemRef, SystemSettings,
 };
 use reqwest::{
-    Client, RequestBuilder, StatusCode,
-    header::{CONTENT_TYPE, HeaderMap, HeaderValue},
+    Client, Method, StatusCode,
+    header::{CONTENT_TYPE, HeaderMap, HeaderValue, InvalidHeaderValue},
 };
 
 use crate::{
@@ -23,6 +23,8 @@ use crate::{
     },
     queue::PluralKitQueue,
     rate_limiter::handle_ratelimit_headers,
+    request::EmptyBody,
+    request::Request,
 };
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -64,60 +66,76 @@ impl PluralKit {
     }
 
     // system
-    pub async fn get_system(&self, system_ref: SystemRef) -> Result<System, Error> {
-        self.send_json(
-            self.client
-                .get(format!("{}/systems/{system_ref}", self.base_url)),
-        )
-        .await
+    pub fn get_system(&self, system_ref: &SystemRef) -> Request<System> {
+        self.get(format!("/systems/{system_ref}"))
     }
 
-    pub async fn update_system(&self, system: System) -> Result<System, Error> {
-        todo!()
+    pub fn update_system(&self, system_ref: &SystemRef, system: System) -> Request<System> {
+        self.patch(format!("/systems/{system_ref}")).json(&system)
     }
 
-    pub async fn get_my_system_settings(&self) -> Result<SystemSettings, Error> {
-        todo!()
-    }
-
-    pub async fn get_system_settings(
+    pub fn get_my_system_settings(
         &self,
-        system_ref: SystemRef,
-    ) -> Result<PublicSystemSettings, Error> {
-        todo!()
+        token: impl Into<String>,
+    ) -> Result<Request<SystemSettings>, InvalidHeaderValue> {
+        self.get("/systems/@me/settings").token(token)
+    }
+
+    pub fn get_system_settings(&self, system_ref: &SystemRef) -> Request<PublicSystemSettings> {
+        self.get(format!("/systems/{system_ref}/settings"))
     }
 
     pub fn update_system_settings(
         &self,
+        system_ref: &SystemRef,
         settings: SystemSettings,
-    ) -> Result<SystemSettings, Error> {
-        todo!()
+        token: impl Into<String>,
+    ) -> Result<Request<SystemSettings>, InvalidHeaderValue> {
+        self.patch(format!("/systems/{system_ref}/settings"))
+            .json(&settings)
+            .token(token)
     }
 
     pub fn get_system_guild_settings(
         &self,
         guild_id: String,
-    ) -> Result<SystemGuildSettings, Error> {
-        todo!()
+        token: impl Into<String>,
+    ) -> Result<Request<SystemGuildSettings>, InvalidHeaderValue> {
+        self.get(format!("/systems/@me/guilds/{guild_id}"))
+            .token(token)
     }
 
     pub fn update_system_guild_settings(
         &self,
+        guild_id: String,
         settings: SystemGuildSettings,
-    ) -> Result<SystemGuildSettings, Error> {
-        todo!()
+        token: impl Into<String>,
+    ) -> Result<Request<SystemGuildSettings>, InvalidHeaderValue> {
+        self.patch(format!("/systems/@me/guilds/{guild_id}"))
+            .json(&settings)
+            .token(token)
     }
 
-    pub async fn get_system_autoproxy_settings(&self) -> Result<AutoproxySettings, Error> {
-        todo!()
+    pub fn get_system_autoproxy_settings(
+        &self,
+        guild_id: String,
+        token: impl Into<String>,
+    ) -> Result<Request<AutoproxySettings>, InvalidHeaderValue> {
+        self.get("/systems/@me/autoproxy")
+            .query("guild_id", guild_id)
+            .token(token)
     }
 
     pub fn update_system_autoproxy_settings(
         &self,
         guild_id: String,
         settings: AutoproxySettings,
-    ) -> Result<AutoproxySettings, Error> {
-        todo!()
+        token: impl Into<String>,
+    ) -> Result<Request<AutoproxySettings>, InvalidHeaderValue> {
+        self.patch("/systems/@me/autoproxy")
+            .query("guild_id", guild_id)
+            .json(&settings)
+            .token(token)
     }
 
     // member
