@@ -381,11 +381,8 @@ impl PluralKit {
     }
 
     // misc
-    pub async fn get_proxied_message_information(
-        &self,
-        message_id: String,
-    ) -> Result<Message, Error> {
-        todo!()
+    pub fn get_proxied_message_information(&self, message_id: String) -> Request<Message> {
+        self.get(format!("/message/{message_id}"))
     }
 
     // shorthand
