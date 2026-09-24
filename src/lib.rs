@@ -139,60 +139,84 @@ impl PluralKit {
     }
 
     // member
-    pub async fn get_system_members(&self, system_ref: SystemRef) -> Result<Vec<Member>, Error> {
-        todo!()
+    pub fn get_system_members(&self, system_ref: &SystemRef) -> Request<Vec<Member>> {
+        self.get(format!("/systems/{system_ref}/members"))
     }
 
-    pub async fn create_member(&self, member: Member) -> Result<Member, Error> {
-        todo!()
+    pub fn create_member(
+        &self,
+        member: Member,
+        token: impl Into<String>,
+    ) -> Result<Request<Member>, InvalidHeaderValue> {
+        self.post("/members").json(&member).token(token)
     }
 
-    pub async fn get_member(&self, member_ref: MemberRef) -> Result<Member, Error> {
-        todo!()
+    pub fn get_member(&self, member_ref: MemberRef) -> Request<Member> {
+        self.get(format!("/members/{member_ref}"))
     }
 
-    pub async fn update_member(&self, member: Member) -> Result<Member, Error> {
-        todo!()
+    pub fn update_member(
+        &self,
+        member_ref: MemberRef,
+        member: Member,
+        token: impl Into<String>,
+    ) -> Result<Request<Member>, InvalidHeaderValue> {
+        self.patch(format!("/members/{member_ref}"))
+            .json(&member)
+            .token(token)
     }
 
-    pub async fn delete_member(&self, member_ref: MemberRef) -> Result<(), Error> {
-        todo!()
+    pub fn delete_member(
+        &self,
+        member_ref: MemberRef,
+        token: impl Into<String>,
+    ) -> Result<Request<EmptyBody>, InvalidHeaderValue> {
+        self.delete(format!("/members/{member_ref}")).token(token)
     }
 
-    pub async fn get_member_groups(&self, member_ref: MemberRef) -> Result<Vec<Group>, Error> {
-        todo!()
+    pub fn get_member_groups(&self, member_ref: MemberRef) -> Request<Vec<Group>> {
+        self.get(format!("/members/{member_ref}/groups"))
     }
 
     pub fn add_member_to_groups(
         &self,
         member_ref: MemberRef,
         groups: Vec<GroupRef>,
-    ) -> Result<(), Error> {
-        todo!()
+        token: impl Into<String>,
+    ) -> Result<Request<EmptyBody>, InvalidHeaderValue> {
+        self.post(format!("/members/{member_ref}/groups/add"))
+            .json(&groups)
+            .token(token)
     }
 
     pub fn remove_member_from_groups(
         &self,
         member_ref: MemberRef,
         groups: Vec<GroupRef>,
-    ) -> Result<(), Error> {
-        todo!()
+        token: impl Into<String>,
+    ) -> Result<Request<EmptyBody>, InvalidHeaderValue> {
+        self.post(format!("/members/{member_ref}/groups/remove"))
+            .json(&groups)
+            .token(token)
     }
 
     pub fn overwrite_member_groups(
         &self,
         member_ref: MemberRef,
         groups: Vec<GroupRef>,
-    ) -> Result<(), Error> {
-        todo!()
+        token: impl Into<String>,
+    ) -> Result<Request<EmptyBody>, InvalidHeaderValue> {
+        self.post(format!("/members/{member_ref}/groups/overwrite"))
+            .json(&groups)
+            .token(token)
     }
 
     pub fn get_member_guild_settings(
         &self,
         member_ref: MemberRef,
         guild_id: String,
-    ) -> Result<MemberGuildSettings, Error> {
-        todo!()
+    ) -> Request<MemberGuildSettings> {
+        self.get(format!("/members/{member_ref}/guilds/{guild_id}"))
     }
 
     pub fn update_member_guild_settings(
@@ -200,8 +224,11 @@ impl PluralKit {
         member_ref: MemberRef,
         guild_id: String,
         settings: MemberGuildSettings,
-    ) -> Result<MemberGuildSettings, Error> {
-        todo!()
+        token: impl Into<String>,
+    ) -> Result<Request<MemberGuildSettings>, InvalidHeaderValue> {
+        self.patch(format!("/members/{member_ref}/guilds/{guild_id}"))
+            .json(&settings)
+            .token(token)
     }
 
     // group
