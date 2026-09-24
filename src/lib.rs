@@ -15,11 +15,12 @@ use reqwest::{
     Client, Method, StatusCode,
     header::{CONTENT_TYPE, HeaderMap, HeaderValue, InvalidHeaderValue},
 };
+use serde_json::json;
 
 use crate::{
     models::{
         Group, GroupRef, MemberGuildSettings, Message, PluralKitUuid, Switch, SwitchWithMembers,
-        group::GroupWithMembers, marker::SwitchMarker,
+        group::GroupWithMembers, marker::SwitchMarker, switch::CreateSwitch,
     },
     queue::PluralKitQueue,
     rate_limiter::handle_ratelimit_headers,
@@ -312,15 +313,15 @@ impl PluralKit {
     }
 
     // switches
-    pub async fn get_system_switches(&self, system_ref: SystemRef) -> Result<Vec<Switch>, Error> {
-        todo!()
+    pub fn get_system_switches(&self, system_ref: &SystemRef) -> Request<Vec<Switch>> {
+        self.get(format!("/systems/{system_ref}/switches"))
     }
 
     pub fn get_current_system_fronters(
         &self,
-        system_ref: SystemRef,
-    ) -> Result<SwitchWithMembers, Error> {
-        todo!()
+        system_ref: &SystemRef,
+    ) -> Request<SwitchWithMembers> {
+        self.get(format!("/systems/{system_ref}/fronters"))
     }
 
     pub fn create_switch(
@@ -328,16 +329,19 @@ impl PluralKit {
         system_ref: &SystemRef,
         members: Vec<MemberRef>,
         timestamp: Option<DateTime>,
-    ) -> Result<SwitchWithMembers, Error> {
-        todo!()
+        token: impl Into<String>,
+    ) -> Result<Request<SwitchWithMembers>, InvalidHeaderValue> {
+        self.post(format!("/systems/{system_ref}/switches"))
+            .json(&CreateSwitch::new(members, timestamp))
+            .token(token)
     }
 
     pub fn get_switch(
         &self,
         system_ref: &SystemRef,
         switch_ref: PluralKitUuid<SwitchMarker>,
-    ) -> Result<SwitchWithMembers, Error> {
-        todo!()
+    ) -> Request<SwitchWithMembers> {
+        self.get(format!("/systems/{system_ref}/switches/{switch_ref}"))
     }
 
     pub fn update_switch(
@@ -345,8 +349,11 @@ impl PluralKit {
         system_ref: &SystemRef,
         switch_ref: PluralKitUuid<SwitchMarker>,
         timestamp: DateTime,
-    ) -> Result<SwitchWithMembers, Error> {
-        todo!()
+        token: impl Into<String>,
+    ) -> Result<Request<SwitchWithMembers>, InvalidHeaderValue> {
+        self.patch(format!("/systems/{system_ref}/switches/{switch_ref}"))
+            .json(&json!({"timestamp": timestamp}))
+            .token(token)
     }
 
     pub fn update_switch_members(
@@ -354,16 +361,23 @@ impl PluralKit {
         system_ref: &SystemRef,
         switch_ref: PluralKitUuid<SwitchMarker>,
         members: Vec<MemberRef>,
-    ) -> Result<SwitchWithMembers, Error> {
-        todo!()
+        token: impl Into<String>,
+    ) -> Result<Request<SwitchWithMembers>, InvalidHeaderValue> {
+        self.patch(format!(
+            "/systems/{system_ref}/switches/{switch_ref}/members"
+        ))
+        .json(&json!({"members": members}))
+        .token(token)
     }
 
-    pub async fn delete_switch(
+    pub fn delete_switch(
         &self,
         system_ref: &SystemRef,
         switch_ref: PluralKitUuid<SwitchMarker>,
-    ) -> Result<(), Error> {
-        todo!()
+        token: impl Into<String>,
+    ) -> Result<Request<EmptyBody>, InvalidHeaderValue> {
+        self.delete(format!("/systems/{system_ref}/switches/{switch_ref}"))
+            .token(token)
     }
 
     // misc
