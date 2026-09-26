@@ -1,4 +1,5 @@
 pub mod autoproxy_settings;
+pub mod error;
 pub mod group;
 pub mod marker;
 pub mod member;
@@ -16,6 +17,7 @@ pub mod system_settings;
 mod datetime;
 
 pub use autoproxy_settings::{AutoproxyMode, AutoproxySettings};
+pub use error::PluralKitError;
 pub use group::{Group, GroupPrivacy};
 pub use member::{Member, MemberPrivacy};
 pub use member_guild_settings::MemberGuildSettings;
