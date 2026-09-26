@@ -1,17 +1,15 @@
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "sqlx")]
-use sqlx::postgres::PgHasArrayType;
 use std::{fmt::Display, hash::Hash, marker::PhantomData, ops::Deref};
 use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct PluralKitUuid<T> {
-    value: Uuid,
+    pub(crate) value: Uuid,
     marker: PhantomData<T>,
 }
 
 impl<T> PluralKitUuid<T> {
-    fn new(value: Uuid) -> Self {
+    pub(crate) fn new(value: Uuid) -> Self {
         Self {
             value,
             marker: PhantomData,

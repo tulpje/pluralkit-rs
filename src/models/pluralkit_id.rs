@@ -5,12 +5,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Deserialize)]
 #[serde(try_from = "String")]
 pub struct PluralKitId<T> {
-    value: String,
+    pub(crate) value: String,
     marker: PhantomData<T>,
 }
 
 impl<T> PluralKitId<T> {
-    fn new(value: String) -> Self {
+    pub(crate) fn new(value: String) -> Self {
         Self {
             value,
             marker: PhantomData,

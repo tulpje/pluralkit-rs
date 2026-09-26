@@ -15,6 +15,8 @@ pub mod system_guild_settings;
 pub mod system_settings;
 
 mod datetime;
+#[cfg(feature = "sqlx")]
+mod sqlx;
 
 pub use autoproxy_settings::{AutoproxyMode, AutoproxySettings};
 pub use error::PluralKitError;
