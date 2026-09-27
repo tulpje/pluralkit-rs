@@ -65,7 +65,7 @@ pub(crate) fn handle_ratelimit_headers(headers: &HeaderMap) -> Option<Duration> 
             }
         }
         Err(err) => {
-            println!("WARN: couldn't parse rate limit data, ignoring: {err}");
+            tracing::info!("couldn't parse rate limit data, ignoring: {err}");
         }
     };
 

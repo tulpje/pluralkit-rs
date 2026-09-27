@@ -469,7 +469,7 @@ impl PluralKitRunner {
 
             // send response (or error) back to client
             if request.response_tx.send(resp).is_err() {
-                println!("ERR: couldnt sending response back, dropping");
+                tracing::error!("couldnt sending response back to client, dropping");
             }
 
             // wait for ratelimiting after sending response back
