@@ -1,3 +1,4 @@
+pub mod builder;
 pub mod models;
 pub mod rate_limiter;
 pub mod request;
@@ -18,6 +19,7 @@ use reqwest::{
 use serde_json::json;
 
 use crate::{
+    builder::PluralKitBuilder,
     models::{
         Group, GroupRef, MemberGuildSettings, Message, PluralKitUuid, Switch, SwitchWithMembers,
         group::GroupWithMembers, marker::SwitchMarker, switch::CreateSwitch,
@@ -45,24 +47,34 @@ impl Default for PluralKit {
 
 impl PluralKit {
     pub fn new() -> Self {
+        Self::builder().build().expect("error building client")
+    }
+
+    pub fn builder() -> PluralKitBuilder {
+        PluralKitBuilder::new()
+    }
+
+    pub(crate) fn with_user_agent_and_base_url(
+        user_agent: impl Into<String>,
+        base_url: impl Into<String>,
+    ) -> Result<Self, crate::Error> {
         let queue = Arc::new(PluralKitQueue::new());
         let runner = PluralKitRunner::new(queue.clone());
         tokio::spawn(async move {
             runner.run().await;
         });
 
-        Self {
+        Ok(Self {
             client: Client::builder()
-                .user_agent(format!("pluralkit-rs/{}", env!("CARGO_PKG_VERSION")))
+                .user_agent(user_agent.into())
                 .default_headers(HeaderMap::from_iter([(
                     CONTENT_TYPE,
                     HeaderValue::from_static("application/json"),
                 )]))
-                .build()
-                .expect("error building reqwest client"),
-            base_url: String::from("https://api.pluralkit.me/v2"),
+                .build()?,
+            base_url: base_url.into(),
             queue,
-        }
+        })
     }
 
     // system
