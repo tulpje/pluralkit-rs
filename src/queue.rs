@@ -1,6 +1,9 @@
 use std::{
     collections::{BTreeMap, VecDeque},
-    sync::RwLock,
+    sync::{
+        RwLock,
+        atomic::{AtomicUsize, Ordering::SeqCst},
+    },
 };
 
 use reqwest::{RequestBuilder, Response};
@@ -13,6 +16,7 @@ pub(crate) struct Request {
 
 pub(crate) struct PluralKitQueue {
     queue: RwLock<BTreeMap<u16, VecDeque<Request>>>,
+    length: AtomicUsize,
     notify: Notify,
 }
 
@@ -20,8 +24,14 @@ impl PluralKitQueue {
     pub(crate) fn new() -> Self {
         Self {
             queue: RwLock::new(BTreeMap::new()),
+            length: AtomicUsize::new(0),
             notify: Notify::new(),
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn len(&self) -> usize {
+        self.length.load(SeqCst)
     }
 
     pub(crate) fn push(
@@ -37,6 +47,7 @@ impl PluralKitQueue {
                 .or_default()
                 .push_back(Request { req, response_tx });
         }
+        self.length.fetch_add(1, SeqCst);
         self.notify.notify_one();
         response_rx
     }
@@ -44,6 +55,7 @@ impl PluralKitQueue {
     pub(crate) fn retry(&self, req: Request, priority: u16) {
         let mut queue = self.queue.write().expect("lock poisoned");
         queue.entry(priority).or_default().push_front(req);
+        self.length.fetch_add(1, SeqCst);
         self.notify.notify_one();
     }
 
@@ -66,6 +78,7 @@ impl PluralKitQueue {
             entry.remove_entry();
         }
 
+        self.length.fetch_sub(1, SeqCst);
         (prio, item)
     }
 }
@@ -105,5 +118,21 @@ mod test {
         assert_eq!(req.req.build()?.url().to_string(), "http://example.tld/");
 
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn it_tracks_len_correctly() {
+        let queue = PluralKitQueue::new();
+        assert_eq!(queue.len(), 0);
+
+        let client = Client::new();
+        queue.push(client.get("http://example.com"), 1);
+        assert_eq!(queue.len(), 1);
+
+        let (_, request) = queue.pop().await;
+        assert_eq!(queue.len(), 0);
+
+        queue.retry(request, 1);
+        assert_eq!(queue.len(), 1);
     }
 }
