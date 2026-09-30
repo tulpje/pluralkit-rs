@@ -40,22 +40,41 @@ impl PluralKitQueue {
         priority: u16,
     ) -> oneshot::Receiver<Result<Response, reqwest::Error>> {
         let (response_tx, response_rx) = oneshot::channel();
-        {
+        let prio_len = {
             let mut queue = self.queue.write().expect("lock poisoned");
-            queue
-                .entry(priority)
-                .or_default()
-                .push_back(Request { req, response_tx });
+            let entry = queue.entry(priority).or_default();
+            entry.push_back(Request { req, response_tx });
+            entry.len()
+        };
+        let total_len = self.length.fetch_add(1, SeqCst) + 1;
+
+        #[cfg(feature = "metrics")]
+        {
+            metrics::gauge!("pluralkitrs_queue_length_total").set(total_len as u32);
+            metrics::gauge!("pluralkitrs_queue_length", "priority" => priority.to_string())
+                .set(prio_len as u32);
         }
-        self.length.fetch_add(1, SeqCst);
+
         self.notify.notify_one();
         response_rx
     }
 
     pub(crate) fn retry(&self, req: Request, priority: u16) {
-        let mut queue = self.queue.write().expect("lock poisoned");
-        queue.entry(priority).or_default().push_front(req);
-        self.length.fetch_add(1, SeqCst);
+        let prio_len = {
+            let mut queue = self.queue.write().expect("lock poisoned");
+            let entry = queue.entry(priority).or_default();
+            entry.push_front(req);
+            entry.len()
+        };
+        let total_len = self.length.fetch_add(1, SeqCst) + 1;
+
+        #[cfg(feature = "metrics")]
+        {
+            metrics::gauge!("pluralkitrs_queue_length_total").set(total_len as u32);
+            metrics::gauge!("pluralkitrs_queue_length", "priority" => priority.to_string())
+                .set(prio_len as u32);
+        }
+
         self.notify.notify_one();
     }
 
@@ -72,13 +91,22 @@ impl PluralKitQueue {
             .get_mut()
             .pop_front()
             .expect("queue shouldn't be empty after notify");
+        let prio_len = entry.get().len();
 
         // if entry is empty remove it
         if entry.get().is_empty() {
             entry.remove_entry();
         }
 
-        self.length.fetch_sub(1, SeqCst);
+        let total_len = self.length.fetch_sub(1, SeqCst) - 1;
+
+        #[cfg(feature = "metrics")]
+        {
+            metrics::gauge!("pluralkitrs_queue_length_total").set(total_len as u32);
+            metrics::gauge!("pluralkitrs_queue_length", "priority" => prio.to_string())
+                .set(prio_len as u32);
+        }
+
         (prio, item)
     }
 }
