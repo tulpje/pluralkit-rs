@@ -7,7 +7,7 @@ mod queue;
 
 use std::{sync::Arc, time::Duration};
 
-use jiff::civil::DateTime;
+use jiff::{Timestamp, Unit, civil::DateTime};
 use models::{
     AutoproxySettings, Member, MemberRef, PublicSystemSettings, System, SystemGuildSettings,
     SystemRef, SystemSettings,
@@ -436,7 +436,7 @@ impl PluralKitRunner {
             let (prio, request) = self.queue.pop().await;
 
             let resp = if let Some(cloned_req) = request.req.try_clone() {
-                let resp = cloned_req.send().await;
+                let resp = send_req(cloned_req).await;
 
                 // status 429 retry logic
                 if let Ok(ref resp) = resp
@@ -456,7 +456,7 @@ impl PluralKitRunner {
                 resp
             } else {
                 // can only send once no matter what
-                request.req.send().await
+                send_req(request.req).await
             };
 
             // calculate sleep duration from headers and status code
@@ -478,4 +478,95 @@ impl PluralKitRunner {
             }
         }
     }
+}
+
+#[cfg(not(feature = "metrics"))]
+async fn send_req(req: reqwest::RequestBuilder) -> Result<reqwest::Response, reqwest::Error> {
+    req.send().await
+}
+
+#[cfg(feature = "metrics")]
+async fn send_req(builder: reqwest::RequestBuilder) -> Result<reqwest::Response, reqwest::Error> {
+    let start_time = Timestamp::now();
+    let (client, req) = builder.build_split();
+    let req = req?;
+    let url = req.url().clone();
+    let method = req.method().to_string();
+    let resp = client.execute(req).await;
+
+    let duration_secs = Timestamp::now()
+        .since(start_time)
+        .expect("should not fail with default config")
+        .total(Unit::Second)
+        .expect("should not fail with just units");
+
+    let route: String = match url.path_segments() {
+        None => "/".to_string(),
+        #[rustfmt::skip]
+        Some(segments) => {
+            // we skip the api version, v1 should just fallthrough
+            let segment_vec: Vec<&str> = segments.skip(1).collect();
+            match segment_vec[..] {
+                // /members
+                // /groups
+                [resource                                     ] => format!("/v2/{resource}"),
+                // /systems/{systemRef}
+                // /members/{memberRef}
+                // /groups/{groupRef}
+                // /messages/{message}
+                [resource , _                                 ] => format!("/v2/{resource}/!"),
+                // /members/{memberRef}/groups/add
+                // /members/{memberRef}/groups/remove
+                // /members/{memberRef}/groups/overwrite
+                ["members", _, "groups"   , action            ] => format!("/v2/members/!/groups/{action}"),
+                // /groups/{groupRef}/members/add
+                // /groups/{groupRef}/members/remove
+                // /groups/{groupRef}/members/overwrite
+                ["groups" , _, "members"  , action            ] => format!("/v2/groups/!/members/{action}"),
+                // /systems/{systemRef}/settings
+                // /systems/@me/autoproxy
+                // /systems/{systemRef}/members
+                // /members/{memberRef}/groups
+                // /systems/{systemRef}/groups
+                // /groups/{groupRef}/members
+                // /systems/{systemRef}/switches
+                // /systems/{systemRef}/fronters
+                [resource , _, subresource                    ] => format!("/v2/{resource}/!/{subresource}"),
+                // /systems/@me/guilds/{guild_id}
+                // /members/{memberRef}/guilds/{guild_id}
+                // /systems/{systemRef}/switches/{switchRef}
+                [resource , _, subresource, _                 ] => format!("/v2/{resource}/!/{subresource}/!"),
+                // /systems/{systemRef}/switches/{switchRef}/members
+                [resource , _, subresource, _, subsubresource ] => format!("/v2/{resource}/!/{subresource}/!/{subsubresource}"),
+                _ => url.path().to_string(),
+            }
+        }
+    };
+
+    let status = resp.as_ref().map_or("Unknown".to_string(), |r| {
+        let status = r.status();
+        match status.canonical_reason() {
+            None => r.status().as_str().to_string(),
+            Some(reason) => format!("{} {}", status.as_str(), reason),
+        }
+    });
+
+    // request counts
+    metrics::counter!(
+        "pluralkitrs_requests_count",
+        "route" => route.clone(),
+        "status" => status,
+        "method" => method.clone()
+    )
+    .increment(1);
+
+    // request latency
+    metrics::histogram!(
+        "pluralkitrs_requests_bucket",
+        "route" => route,
+        "method" => method
+    )
+    .record(duration_secs);
+
+    resp
 }
