@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{fmt::Display, str::FromStr};
 
 use jiff::civil::DateTime;
 use serde::{Deserialize, Serialize};
@@ -103,6 +103,23 @@ impl FromStr for ProxyTag {
     }
 }
 
+impl From<ProxyTag> for String {
+    fn from(value: ProxyTag) -> Self {
+        value.to_string()
+    }
+}
+
+impl Display for ProxyTag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}text{}",
+            self.prefix.as_deref().unwrap_or_default(),
+            self.suffix.as_deref().unwrap_or_default(),
+        )
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MemberPrivacy {
     pub visibility: Privacy,
@@ -165,6 +182,22 @@ mod test {
         assert_eq!(
             ProxyTag::try_from(String::from("foo/text")).unwrap(),
             ProxyTag::with_prefix("foo/")
+        );
+    }
+
+    #[test]
+    fn test_proxy_tag_into_string_impl() {
+        assert_eq!(
+            String::from(ProxyTag::with_prefix_suffix("foo/", "/bar")),
+            String::from("foo/text/bar")
+        );
+    }
+
+    #[test]
+    fn test_proxy_tag_display_impl() {
+        assert_eq!(
+            format!("{}", ProxyTag::with_prefix_suffix("foo/", "/bar")),
+            "foo/text/bar"
         );
     }
 }
